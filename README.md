@@ -389,7 +389,7 @@ fit.month[[which.min(lplc.month)]]
 ## Laplace: 19293.66 BIC: 20553.24 AIC: 19961.34 
 ```
 
-The code for the chord diagram and checking the robustness of our DMM clusters is provided elsewhere: [click here](https://github.com/rfjkullberg/CAP_microbiota_monocytes/blob/main/DMM%20additional%20analyses.md)
+The code for the chord diagram and checking the robustness of our DMM clusters is provided elsewhere: [click here](https://github.com/rfjkullberg/Microbiota_cytokine_production/blob/main/DMM%20additional%20analyses.md)
 
 
 ```
