@@ -475,7 +475,7 @@ ggplot(deseq, aes(x=reorder(Genus,log2FoldChange), y=log2FoldChange, fill=group)
   scale_fill_manual(values=c("#003366", "#91c3e1"))
 ```
 
-## Step 6 - Linking gut microbiota to cytokine responses during and following CAP hospitalization
+## Step 5 - Linking gut microbiota to cytokine responses during and following CAP hospitalization
 Next, we used complementary analyses to determine whether gut microbiota are associated with cell-specific cytokine production capacity during and following CAP. CD14+ monocytes and polymorphonuclear leukocytes (PMNs) were isolated and stimulated ex vivo for 24 hours (monocytes) or 2 hours (PMNs) with lipopolysaccharide (LPS) or heat-killed K. pneumoniae. Following stimulation, we measured a wide array of cytokines and neutrophil degranulation products by multiplex assay. 
 
 First, we quantified how much of the variation in cytokine measurements could be attributed to the gut microbiota. We loaded the cytokine production data, imputed values below the detection limit, and combined the cytokine production data with the metadata. 
@@ -547,7 +547,6 @@ sample_data(ps.kleb) <- set.samp(kleb)
 
 ```
 
-
 To avoid overestimation due to species-speciees correlations, we represented the microbiota through the first 4 principal coordinates (PCoA analysis with weighted UniFrac distance). These principal coordinates accounted for 65% of the variability in the microbial composition of the samples. 
 
 ```
@@ -605,6 +604,7 @@ res.admission <- rbind(res.lps, res.kleb) %>%
 ```
 
 This process was repeated for the samples collected one month following hospitalization. 
+Rectal microbiota explained up to 10.4% of cytokine variability.
 
 ```
 variance <- rbind(res.admission, res.month) %>%
@@ -617,10 +617,214 @@ ggplot(variance, aes(x=R2, y=reorder(description,R2), fill=time)) +
   xlab("Cytokine Variation Explained by Microbiota Data") +
   theme_bw() +
   theme(legend.position = "none")+
-  scale_fill_manual(values=c('#4197cc', '#9f514d' ))
+  scale_fill_manual(values=c('#4197cc', '#9f514d'))
 ```
 
 
 
+## Step 6 - Linking rectal microbiota profiles to cytokine producing capacity
+Next, we compared the cytokine producing capacity between patients with disrupted and undisrupted microbiota profiles. 
+We converted the cytokine production data into long format, combined the data with the metadata, and calculated the median (per group), p-values between groups and the log2 fold change. 
+
+```
+c <- cytokines  %>%
+  melt(id.vars = c("ID", "group", "stimulation")) %>%
+  mutate(value = as.numeric(value))
+  
+cytokines.adm <- metadata.admission %>%
+  left_join(c) %>%
+  select(ID, group, Cluster.adm, stimulation, variable, value) 
+
+# Calculate median per group
+cytokines.adm.volcano <- cytokines.adm %>%
+  filter(!is.na(value))%>%
+  group_by(stimulation, variable, Cluster) %>%
+  summarize(median = median(value)) %>%
+  mutate(Cluster = if_else(Cluster =="Admission - No disruption", "median.a", "median.b")) %>%
+  dcast(stimulation + variable  ~ Cluster)
+
+# p-values between groups and log2 fold change
+cytokines.adm.volcano <- cytokines.adm %>%
+  filter(!is.na(value))%>%
+  group_by(stimulation, variable) %>%
+  summarize(p = wilcox.test(value ~ Cluster)$p.value) %>%
+  left_join(cytokines.adm.volcano) %>% 
+  mutate(fc = median.a / median.b) %>%
+  mutate(log2_fc = log2(fc)) %>%
+  mutate(change = ifelse(log2_fc >= 0 ,"Up", "Down"),
+  description = paste(variable, "-", stimulation))
+```
+There were no differences in cytokine producing capacity between patients with disrupted and undisrupted microbiota profiles at hospital admission. 
+
+```
+cytokines.adm.volcano %>% 
+  ggplot() +
+  geom_point(aes(x = log2_fc, y = -log10(p), fill=change),shape=21, size = 5, alpha = 1, colour="black") +
+  geom_text_repel(aes(x = log2_fc, y = -log10(p), label = ifelse(p < 0.35, description,"")), min.segment.length = unit(0, 'lines'),
+                  nudge_x = 0, nudge_y=0.1, segment.alpha = 0.3, force=2)+
+  xlab("Scaled fold difference") +
+  xlim(-.5,.5)+
+  ylim(0,2)+
+  ylab("-log10 p-value") +
+  theme_classic()+
+  geom_hline(yintercept = 1.30, linetype = "dashed") +
+  scale_fill_manual(values=c("#003366", "#91c3e1"))
+  ```
+The same code was used to compare the cytokine responses of patients one month following hospitalization. 
+  
+  
+Next, we analyzed associations between the relative abundance of known butyrate-producing bacteria and cytokine measurements using Spearman correlations. 
+
+```
+butyrate.producers <- c("Butyricimonas", "Odoribacter", "Alistipes", "Eubacterium", "Anaerostipes","Butyrivibrio", "Coprococcus_2", "Coprococcus_3",
+                    "Roseburia","Shuttleworthia","Butyricicoccus","Faecalibacterium","Flavonifractor", "Pseudoflavonifractor","Oscillibacter","Ruminococcus_2","Subdoligranulum")
+
+butyrate.adm <- get.otu.melt(ps.admission, filter.zero = F) %>%
+  subset(Genus %in% butyrate.producers)%>%
+  group_by(sample, ID, group, Cluster.adm)%>%
+  summarize(sum = sum(pctseqs))
+butyrate.adm <- cytokines %>%
+  filter(group == "CAP, admission") %>%
+  left_join(butyrate.adm)
+
+butyrate.adm$stimulation <- factor(butyrate.adm$stimulation,levels=c("LPS", "Klebsiella"))
+```
+
+There was no significant relation between the relative abundance of butyrate-producing bacteria and TNF-alpha production at hospital admission for CAP:
+
+```
+ggplot(butyrate.adm, aes(x=sum, y=TNF_alpha, colour = group)) + 
+  geom_point(size=2.5) +
+  geom_smooth(method="lm", se=T, fullrange=FALSE, span = 0.99,  level=0.95) +
+  scale_color_manual(values = '#4197cc')+
+  scale_y_continuous(trans=log_epsilon_trans(epsilon=1000),limits=c(0,250000))+
+  stat_fit_glance(method = "cor.test",method.args = list(formula = ~x+y, method = "spearman", exact = FALSE),
+                  geom = 'text',aes(label = paste("p=", signif(..p.value.., digits = 3))),
+                  label.x = "center",label.y = "top") +
+  facet_grid(.~stimulation, scales = "free", switch = "both")+
+  theme_bw()
+```
+The same code was used to compare the other cytokines (IL-1β, IL-6, IL-10, IFNγ, IL-27, IL-8, MPO, Proteinase 3, and Lipocalin-2/NGAL), and the patients one month following hospitalization. 
 
 
+
+## Step 7 - Disrupted microbiota profiles are coupled with altered monocyte gene expression pathways following CAP hospitalization
+As monocytes of patients with disrupted microbiota profiles one month following hospital admission had a lower production capacity of IL-27 and IFNγ, we compared monocyte expression between these groups (disrupted vs. not disrupted microbiota) at that timepoint. 
+
+```
+monocytes <- read_excel("~/Documents/Elder-Biome/Data/MonocytesDHcounts.xlsx")%>%
+  column_to_rownames(var = "ENSEMBLID")
+  
+phenoData <- read.csv("~/Documents/Elder-Biome/Data/Monocytes_metadata.csv")%>%
+  select(ID, group, batch, matrixID) %>%
+  left_join(metadata.month) %>%
+  filter(!is.na(Cluster.month)) %>%
+  select(matrixID, Cluster.month, batch) %>%
+  column_to_rownames(var = "matrixID")  
+  
+monocytes <- monocytes[,colnames(monocytes) %in% row.names(phenoData)]
+
+dds <- DESeqDataSetFromMatrix(countData=monocytes, 
+                              colData=phenoData, 
+                              design= ~ batch + Cluster.month) 
+dds <- DESeq(dds)
+res <- results(dds, contrast = c("Cluster.month", "One Month - Disruption","One Month - No disruption"))       
+res <- as.data.frame(res)
+
+EnhancedVolcano(res,
+                lab = rownames(res),
+                x = 'log2FoldChange',
+                y = 'pvalue',
+                xlim = c(-17, 17))
+```
+
+Functional GSEA pathway analysis yielded several key immune response pathways to be significantly upregulated in monocytes isolated from patients with undisrupted microbiota profiles compared to those patients with disrupted microbiota profiles. 
+
+```
+bitr <- bitr(row.names(res), fromType="ENSEMBL", toType=c("SYMBOL","ENTREZID"), OrgDb="org.Hs.eg.db")
+resm <- merge( as.data.frame(res), bitr, by.x=0, by.y="ENSEMBL")
+
+genelist <- resm$stat
+names(genelist) <- resm$ENTREZID
+genelist <- genelist[order(-genelist)]
+genelist <- genelist[!is.na(genelist)]
+
+y <- gsePathway(genelist,
+                pvalueCutoff=0.05, maxGSSize = 1200,
+                pAdjustMethod="BH", verbose=FALSE, seed=T)
+gsea <- as.data.frame(y)   %>%
+  mutate(group=ifelse(NES>0,"One Month - No disruption" ,"One Month - Disruption")) 
+gsea <- gsea[order(-gsea$NES),]
+gsea$group <- factor(gsea$group, levels = c("One Month - No disruption", "One Month - Disruption"))
+
+gsea %>%
+  mutate(NES = abs(NES)) %>%
+  ggplot() +
+  geom_bar(aes(y= NES, x=reorder(Description, NES), fill = group), stat="identity", color= "black") +
+  geom_text(aes(y = -.1, x = reorder(Description, NES), label = round(p.adjust,3)))+
+  coord_flip()+
+  scale_fill_manual(values=c("#c78e8b", "#660033")) +
+  facet_wrap(group ~., ncol = 1, scales = "free")+
+  ylab("Normalized Enrichment Score")+
+  xlab("") +
+  theme_bw()
+```
+
+
+
+### SessionInfo 
+```
+sessionInfo()
+```
+```
+## R version 4.1.1 (2021-08-10)
+## Platform: x86_64-apple-darwin17.0 (64-bit)
+## Running under: macOS Big Sur 10.16
+## 
+## Matrix products: default
+## LAPACK: /Library/Frameworks/R.framework/Versions/4.1/Resources/lib/libRlapack.dylib
+## 
+## Random number generation:
+##  RNG:     Mersenne-Twister 
+##  Normal:  Inversion 
+##  Sample:  Rounding 
+##  
+## locale:
+## [1] nl_NL.UTF-8/nl_NL.UTF-8/nl_NL.UTF-8/C/nl_NL.UTF-8/nl_NL.UTF-8
+## 
+## attached base packages:
+## [1] parallel  stats4    stats     graphics  grDevices utils     datasets  methods   base     
+## 
+## other attached packages:
+##  [1] ReactomePA_1.36.0           clusterProfiler_4.0.5       EnhancedVolcano_1.10.0      circlize_0.4.13             RColorBrewer_1.1-2          data.table_1.14.2          
+##  [7] scales_1.1.1                ggrepel_0.9.1               ggpubr_0.4.0                readxl_1.3.1                DirichletMultinomial_1.34.0 microbiome_1.14.0          
+## [13] DESeq2_1.32.0               SummarizedExperiment_1.22.0 MatrixGenerics_1.4.3        matrixStats_0.61.0          GenomicRanges_1.44.0        GenomeInfoDb_1.28.4        
+## [19] phyloseq_1.36.0             yingtools2_0.0.1.60         vegan_2.5-7                 lattice_0.20-45             permute_0.9-5               forcats_0.5.1              
+## [25] stringr_1.4.0               dplyr_1.0.7                 purrr_0.3.4                 readr_2.0.2                 tidyr_1.1.4                 tibble_3.1.5               
+## [31] ggplot2_3.3.5               tidyverse_1.3.1             org.Hs.eg.db_3.13.0         AnnotationDbi_1.54.1        IRanges_2.26.0              S4Vectors_0.30.2           
+## [37] Biobase_2.52.0              BiocGenerics_0.38.0        
+## 
+## loaded via a namespace (and not attached):
+##   [1] utf8_1.2.2             tidyselect_1.1.1       RSQLite_2.2.8          grid_4.1.1             BiocParallel_1.26.2    Rtsne_0.15             scatterpie_0.1.7      
+##   [8] munsell_0.5.0          codetools_0.2-18       withr_2.4.2            colorspace_2.0-2       GOSemSim_2.18.1        ggalt_0.4.0            rstudioapi_0.13       
+##  [15] ggsignif_0.6.3         DOSE_3.18.3            Rttf2pt1_1.3.9         labeling_0.4.2         GenomeInfoDbData_1.2.6 polyclip_1.10-0        bit64_4.0.5           
+##  [22] farver_2.1.0           rhdf5_2.36.0           downloader_0.4         treeio_1.16.2          vctrs_0.3.8            generics_0.1.0         R6_2.5.1              
+##  [29] ggbeeswarm_0.6.0       graphlayouts_0.7.1     locfit_1.5-9.4         gridGraphics_0.5-1     bitops_1.0-7           rhdf5filters_1.4.0     cachem_1.0.6          
+##  [36] fgsea_1.18.0           DelayedArray_0.18.0    assertthat_0.2.1       ggraph_2.0.5           enrichplot_1.12.3      beeswarm_0.4.0         gtable_0.3.0          
+##  [43] ash_1.0-15             tidygraph_1.2.0        rlang_0.4.11           genefilter_1.74.1      GlobalOptions_0.1.2    splines_4.1.1          lazyeval_0.2.2        
+##  [50] rstatix_0.7.0          extrafontdb_1.0        checkmate_2.0.0        broom_0.7.9            reshape2_1.4.4         abind_1.4-5            modelr_0.1.8          
+##  [57] backports_1.2.1        qvalue_2.24.0          extrafont_0.17         tools_4.1.1            ggplotify_0.1.0        ellipsis_0.3.2         biomformat_1.20.0     
+##  [64] Rcpp_1.0.7             plyr_1.8.6             zlibbioc_1.38.0        RCurl_1.98-1.5         viridis_0.6.2          cowplot_1.1.1          haven_2.4.3           
+##  [71] cluster_2.1.2          fs_1.5.0               magrittr_2.0.1         DO.db_2.9              openxlsx_4.2.4         reactome.db_1.76.0     reprex_2.0.1          
+##  [78] patchwork_1.1.1        hms_1.1.1              xtable_1.8-4           XML_3.99-0.8           rio_0.5.27             gridExtra_2.3          shape_1.4.6           
+##  [85] compiler_4.1.1         maps_3.4.0             shadowtext_0.0.9       KernSmooth_2.23-20     crayon_1.4.1           ggfun_0.0.4            mgcv_1.8-38           
+##  [92] tzdb_0.1.2             aplot_0.1.1            geneplotter_1.70.0     lubridate_1.8.0        DBI_1.1.1              tweenr_1.0.2           dbplyr_2.1.1          
+##  [99] proj4_1.0-10.1         rappdirs_0.3.3         MASS_7.3-54            Matrix_1.3-4           ade4_1.7-18            car_3.0-11             cli_3.0.1             
+## [106] igraph_1.2.7           pkgconfig_2.0.3        foreign_0.8-81         xml2_1.3.2             foreach_1.5.1          ggtree_3.0.4           annotate_1.70.0       
+## [113] vipor_0.4.5            multtest_2.48.0        XVector_0.32.0         rvest_1.0.2            yulab.utils_0.0.4      digest_0.6.28          graph_1.70.0          
+## [120] Biostrings_2.60.2      cellranger_1.1.0       fastmatch_1.1-3        tidytree_0.3.5         curl_4.3.2             graphite_1.38.0        lifecycle_1.0.1       
+## [127] nlme_3.1-153           jsonlite_1.7.2         Rhdf5lib_1.14.2        carData_3.0-4          viridisLite_0.4.0      fansi_0.5.0            pillar_1.6.3          
+## [134] ggrastr_0.2.3          KEGGREST_1.32.0        fastmap_1.1.0          httr_1.4.2             survival_3.2-13        GO.db_3.13.0           glue_1.4.2            
+## [141] zip_2.2.0              png_0.1-7              iterators_1.0.13       bit_4.0.4              ggforce_0.3.3          stringi_1.7.5          blob_1.2.2            
+## [148] memoise_2.0.0          ape_5.5
+```
