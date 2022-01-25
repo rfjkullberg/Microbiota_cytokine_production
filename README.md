@@ -1,4 +1,4 @@
-# Rectal microbiota profiles and cytokine producing capacity of monocytes and neutrophils  in CAP
+# Rectal microbiota profiles and cytokine production capacity of monocytes and neutrophils  in CAP
 
 This is the code used for the main analyses in "Linking rectal microbiota profiles to monocyte and neutrophil cytokine production capacity in community-acquired pneumonia" (submitted). For questions: Bob Kullberg at r.f.j.kullberg@amsterdamumc.nl
 
@@ -478,7 +478,7 @@ ggplot(deseq, aes(x=reorder(Genus,log2FoldChange), y=log2FoldChange, fill=group)
 ## Step 5 - Linking gut microbiota to cytokine responses during and following CAP hospitalization
 Next, we used complementary analyses to determine whether gut microbiota are associated with cell-specific cytokine production capacity during and following CAP. CD14+ monocytes and polymorphonuclear leukocytes (PMNs) were isolated and stimulated ex vivo for 24 hours (monocytes) or 2 hours (PMNs) with lipopolysaccharide (LPS) or heat-killed K. pneumoniae. Following stimulation, we measured a wide array of cytokines and neutrophil degranulation products by multiplex assay. 
 
-First, we quantified how much of the variation in cytokine measurements could be attributed to the gut microbiota. We loaded the cytokine production data, imputed values below the detection limit, and combined the cytokine production data with the metadata. 
+First, we quantified how much of the variation in cytokine measurements and degranulation products could be attributed to the gut microbiota. We loaded the cytokine production data, imputed values below the detection limit, and combined the cytokine production data with the metadata. 
 
 ```
 monocytes <- read_excel("~/Documents/Elder-Biome/Data/cytokines.xlsx") %>%
@@ -623,8 +623,8 @@ ggplot(variance, aes(x=R2, y=reorder(description,R2), fill=time)) +
 
 
 ## Step 6 - Linking rectal microbiota profiles to cytokine producing capacity
-Next, we compared the cytokine producing capacity between patients with disrupted and undisrupted microbiota profiles. 
-We converted the cytokine production data into long format, combined the data with the metadata, and calculated the median (per group), p-values between groups and the log2 fold change. 
+Next, we compared the cytokine producing capacity and degranulation products between patients with disrupted and undisrupted microbiota profiles. 
+We converted the cytokine data into long format, combined the data with the metadata, and calculated the median (per group), p-values between groups and the log2 fold change. 
 
 ```
 c <- cytokines  %>%
@@ -654,7 +654,7 @@ cytokines.adm.volcano <- cytokines.adm %>%
   mutate(change = ifelse(log2_fc >= 0 ,"Up", "Down"),
   description = paste(variable, "-", stimulation))
 ```
-There were no differences in cytokine producing capacity between patients with disrupted and undisrupted microbiota profiles at hospital admission. 
+There were no differences in cytokine producing capacity and degranulation products between patients with disrupted and undisrupted microbiota profiles at hospital admission. 
 
 ```
 cytokines.adm.volcano %>% 
@@ -673,7 +673,7 @@ cytokines.adm.volcano %>%
 The same code was used to compare the cytokine responses of patients one month following hospitalization. 
   
   
-Next, we analyzed associations between the relative abundance of known butyrate-producing bacteria and cytokine measurements using Spearman correlations. 
+Next, we analyzed associations between the relative abundance of known butyrate-producing bacteria and cytokine measurements  and neutrophil degranulation products using Spearman correlations. 
 
 ```
 butyrate.producers <- c("Butyricimonas", "Odoribacter", "Alistipes", "Eubacterium", "Anaerostipes","Butyrivibrio", "Coprococcus_2", "Coprococcus_3",
@@ -704,7 +704,7 @@ ggplot(butyrate.adm, aes(x=sum, y=TNF_alpha, colour = group)) +
   facet_grid(.~stimulation, scales = "free", switch = "both")+
   theme_bw()
 ```
-The same code was used to compare the other cytokines (IL-1β, IL-6, IL-10, IFNγ, IL-27, IL-8, MPO, Proteinase 3, and Lipocalin-2/NGAL), and the patients one month following hospitalization. 
+The same code was used to compare the other cytokines and degranulation products (IL-1β, IL-6, IL-10, IFNγ, IL-27, IL-8, MPO, Proteinase 3, and Lipocalin-2/NGAL), and the patients one month following hospitalization. 
 
 
 
