@@ -547,7 +547,7 @@ sample_data(ps.kleb) <- set.samp(kleb)
 
 ```
 
-To avoid overestimation due to species-speciees correlations, we represented the microbiota through the first 4 principal coordinates (PCoA analysis with weighted UniFrac distance). These principal coordinates accounted for 65% of the variability in the microbial composition of the samples. 
+To avoid overestimation due to species-species correlations, we represented the microbiota through the first 4 principal coordinates (PCoA analysis with weighted UniFrac distance). These principal coordinates accounted for 65% of the variability in the microbial composition of the samples. 
 
 ```
 set.seed(711)
@@ -603,8 +603,8 @@ res.admission <- rbind(res.lps, res.kleb) %>%
   mutate(time = "Admission")
 ```
 
-This process was repeated for the samples collected one month following hospitalization. 
-Rectal microbiota explained up to 10.4% of cytokine variability.
+This process was repeated for the samples collected one month following hospitalization, and for serum cytokines. 
+Rectal microbiota explained up to 10.4% of variability in cytokine responses and degranulation products of stimulated monocytes and neutrophils. 
 
 ```
 variance <- rbind(res.admission, res.month) %>%
