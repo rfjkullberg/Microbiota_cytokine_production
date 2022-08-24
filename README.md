@@ -1,6 +1,6 @@
-# Rectal microbiota profiles and cytokine production capacity of monocytes and neutrophils  in CAP
+# Rectal microbiota and cytokine production capacity of monocytes and neutrophils  in CAP
 
-This is the code used for the main analyses in "Linking rectal microbiota profiles to monocyte and neutrophil cytokine production capacity in community-acquired pneumonia" (submitted). For questions: Bob Kullberg at r.f.j.kullberg@amsterdamumc.nl
+This is the code used for the main analyses in "Rectal microbiota are coupled with altered cytokine production capacity following community-acquired pneumonia hospitalization" ([doi.org/10.1016/j.isci.2022.104740](doi.org/10.1016/j.isci.2022.104740)). For questions: Bob Kullberg at r.f.j.kullberg@amsterdamumc.nl
 
 ## Step 1 - Load libraries
 
